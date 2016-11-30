@@ -9,6 +9,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -41,8 +42,11 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
     private static final String SQL_DELETE_ENTRIES =
             "DROP TABLE IF EXISTS " + SQLContract.UPLOAD.TABLE_NAME;
 
+    private SQLiteDatabase db;
+
     public UploadSQLiteHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        db = getWritableDatabase();
     }
 
     @Override
@@ -62,7 +66,6 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
      * @param filePath 文件地址
      */
     void addTask(@NonNull String taskID, int index, @NonNull String filePath) {
-        SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         ContentValues values = new ContentValues();
         values.put(SQLContract.UPLOAD.TASK_ID, taskID);
@@ -75,7 +78,6 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
                     taskID, index, filePath));
         }
         db.endTransaction();
-        db.close();
     }
 
     /**
@@ -86,7 +88,6 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
      * @param statue 状态
      */
     void updateStatue(@NonNull String taskID, int index, @UploadService.STATUE int statue) {
-        SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
 
         ContentValues values = new ContentValues();
@@ -107,7 +108,6 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
             LogHelper.e("更新状态数量为" + count);
         }
         db.endTransaction();
-        db.close();
     }
 
     /**
@@ -118,7 +118,6 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
      * @param url    图片地址
      */
     void doneUpload(@NonNull String taskID, int index, @NonNull String url) {
-        SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
 
         ContentValues values = new ContentValues();
@@ -140,12 +139,10 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
             LogHelper.e("更新状态数量为" + count);
         }
         db.endTransaction();
-        db.close();
     }
 
     @NonNull
     List<Task> getTaskList(@Nullable String taskID) {
-        SQLiteDatabase db = getReadableDatabase();
 
         String selection = SQLContract.UPLOAD.TASK_ID + " = ?";
         String[] selectionArgs = {taskID};
@@ -183,14 +180,13 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
             Task task = new Task();
             task.setTaskID(c.getString(c.getColumnIndex(SQLContract.UPLOAD.TASK_ID)));
             task.setIndex(c.getInt(c.getColumnIndex(SQLContract.UPLOAD.INDEX)));
-            task.setFilePath(c.getString(c.getColumnIndex(SQLContract.UPLOAD.FILE_PATH)));
+            task.setFile(new File(c.getString(c.getColumnIndex(SQLContract.UPLOAD.FILE_PATH))));
             task.setStatue(c.getInt(c.getColumnIndex(SQLContract.UPLOAD.STATUE)));
             task.setUrl(c.getString(c.getColumnIndex(SQLContract.UPLOAD.URL)));
             tasks.add(task);
             c.moveToNext();
         }
         c.close();
-        db.close();
         return tasks;
     }
 }

@@ -26,9 +26,11 @@ import java.util.concurrent.TimeUnit;
 import me.shaohui.advancedluban.Luban;
 import moe.xing.baseutils.Init;
 import moe.xing.baseutils.utils.LogHelper;
+import moe.xing.rx_utils.RxBus;
 import rx.Observable;
 import rx.Subscriber;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
 
 /**
  * Created by Qi Xingchen on 16-11-28.
@@ -59,44 +61,28 @@ public class UploadService extends Service {
         mEvent = event;
     }
 
-    private UploadJob.UploadEvent mUploadEvent = new UploadJob.UploadEvent() {
-        @Override
-        public void start(@NonNull File file, @NonNull String taskID, int index) {
-            if (mEvent != null) {
-                mEvent.start(file, taskID, index);
-            }
-        }
-
-        @Override
-        public void retrying(@NonNull File file, @NonNull String taskID, int index) {
-            if (mEvent != null) {
-                mEvent.retrying(file, taskID, index);
-            }
-        }
-
-        @Override
-        public void failed(@NonNull File file, @NonNull String taskID, int index, @NonNull String errorMessage) {
-            if (mEvent != null) {
-                mEvent.failed(file, taskID, index, errorMessage);
-            }
-            completedTaskSize++;
-            startForegroundNotification(taskSize, completedTaskSize, doneTaskSize);
-        }
-
-        @Override
-        public void done(@NonNull File file, @NonNull String taskID, int index, @NonNull String url) {
-            if (mEvent != null) {
-                mEvent.done(file, taskID, index, url);
-            }
-            completedTaskSize++;
-            doneTaskSize++;
-            startForegroundNotification(taskSize, completedTaskSize, doneTaskSize);
-        }
-    };
-
     public void onCreate() {
         super.onCreate();
         getJobManager();
+        RxBus.getInstance().toObserverable().subscribe(new Action1<Object>() {
+            @Override
+            public void call(Object o) {
+                if (o instanceof Task) {
+                    Task task = (Task) o;
+                    if (mEvent != null) {
+                        mEvent.taskChanged(task);
+                    }
+                    if (task.getStatue() == FAILED) {
+                        completedTaskSize++;
+                    }
+                    if (task.getStatue() == DONE) {
+                        completedTaskSize++;
+                        doneTaskSize++;
+                    }
+                    startForegroundNotification(taskSize, completedTaskSize, doneTaskSize);
+                }
+            }
+        });
     }
 
     private synchronized JobManager getJobManager() {
@@ -107,7 +93,7 @@ public class UploadService extends Service {
     }
 
     private void configureJobManager() {
-        Configuration.Builder builder = new Configuration.Builder(this)
+        Configuration.Builder builder = new Configuration.Builder(Init.getApplication())
                 .minConsumerCount(1)
                 .maxConsumerCount(1)
                 .loadFactor(1)
@@ -134,7 +120,7 @@ public class UploadService extends Service {
     }
 
 
-    class UploadBinder extends Binder {
+    public class UploadBinder extends Binder {
         /**
          * 上传文件
          *
@@ -180,6 +166,20 @@ public class UploadService extends Service {
          * @param maxSideSizeInPX 压缩后最大边的尺寸 默认 1920PX
          */
         public void compressAndUploadImage(List<File> images, @NonNull final String taskID, int sizeInKiB, int maxSideSizeInPX) {
+            if (images == null || images.size() == 0) {
+                showCompressErrorNotification("空相片组");
+                return;
+            }
+            int i = 0;
+            for (File file : images) {
+                Task task = new Task(taskID, i, file);
+                task.setStatue(COMPRESSING);
+                if (mEvent != null) {
+                    mEvent.taskChanged(task);
+                }
+                i++;
+            }
+            startForegroundNotification(images.size(), 0, 0);
             compressImages(images, sizeInKiB, maxSideSizeInPX)
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(new Subscriber<List<File>>() {
@@ -216,6 +216,10 @@ public class UploadService extends Service {
         public List<Task> getTask(@Nullable String taskID) {
             return new UploadSQLiteHelper(Init.getApplication()).getTaskList(taskID);
         }
+
+        public UploadService getService() {
+            return UploadService.this;
+        }
     }
 
 
@@ -230,6 +234,7 @@ public class UploadService extends Service {
         if (taskSize == completedTaskSize) {
             stopNotification();
             showCompleteNotification(taskSize, doneTaskSize);
+            return;
         }
         NotificationCompat.Builder notifiBuilder = new NotificationCompat.Builder(this)
                 .setContentTitle("正在上传图片")
@@ -270,7 +275,7 @@ public class UploadService extends Service {
      * 停止通知
      */
     private void stopNotification() {
-        NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID);
+        stopForeground(true);
     }
 
     /**
@@ -326,14 +331,15 @@ public class UploadService extends Service {
     }
 
     private void uploadFile(@NonNull File file, @NonNull String taskID, int index) {
-        getJobManager().addJobInBackground(new UploadJob(mUploadEvent, file, taskID, index));
+        new UploadSQLiteHelper(this).addTask(taskID, index, file.getAbsolutePath());
+        getJobManager().addJobInBackground(new UploadJob(file, taskID, index));
     }
 
-    public static final int WAITING = 1;
+    public static final int RETRYING = 1;
     public static final int UPLOADING = 2;
-    public static final int COMPRESSING = 3;
-    public static final int RETRYING = 4;
-    public static final int FAILED = 5;
+    public static final int FAILED = 3;
+    public static final int WAITING = 4;
+    public static final int COMPRESSING = 5;
     public static final int DONE = 6;
 
     @IntDef({WAITING, UPLOADING, COMPRESSING, RETRYING, FAILED, DONE})
@@ -341,13 +347,9 @@ public class UploadService extends Service {
     }
 
     public interface UploadServiceEvent {
-        void start(@NonNull File file, @NonNull String taskID, int index);
 
-        void retrying(@NonNull File file, @NonNull String taskID, int index);
+        void taskChanged(@NonNull Task task);
 
-        void failed(@NonNull File file, @NonNull String taskID, int index, @NonNull String errorMessage);
-
-        void done(@NonNull File file, @NonNull String taskID, int index, @NonNull String url);
     }
 
 }

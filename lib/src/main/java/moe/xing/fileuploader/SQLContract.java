@@ -19,7 +19,7 @@ class SQLContract {
      static class UPLOAD implements BaseColumns {
         static final String TABLE_NAME = "UPLOAD_TASK";
          static final String TASK_ID = "task_id";
-         static final String INDEX = "index";
+         static final String INDEX = "theIndex";
          static final String FILE_PATH = "file_path";
          static final String STATUE = "statue";
          static final String URL = "url";

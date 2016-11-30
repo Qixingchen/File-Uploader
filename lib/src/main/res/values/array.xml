@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="statue">
+        <item>失败</item>
+        <item>上传中</item>
+        <item>等待</item>
+        <item>压缩中</item>
+        <item>重试中</item>
+        <item>完成</item>
+    </string-array>
+</resources>

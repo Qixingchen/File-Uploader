@@ -14,6 +14,9 @@ android {
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
+    dataBinding {
+        enabled = true
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -37,8 +40,8 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.0.1'
     testCompile 'junit:junit:4.12'
 
-//    // rx
-//    compile 'com.github.Qixingchen:Rx-Utils:V1.2.1'
+    // rx
+    compile 'com.github.Qixingchen:Rx-Utils:V1.2.1'
 
     //网络
     compile 'com.github.Qixingchen:Android-Network-Utils:V1.1.0'

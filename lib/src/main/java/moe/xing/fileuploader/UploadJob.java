@@ -11,6 +11,7 @@ import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import moe.xing.baseutils.Init;
+import moe.xing.rx_utils.RxBus;
 
 /**
  * Created by Qi Xingchen on 16-11-28.
@@ -19,19 +20,14 @@ import moe.xing.baseutils.Init;
  */
 
 class UploadJob extends Job {
-
-    @NonNull
-    private UploadEvent mEvent;
-
     private static final int PRIORITY = 1;
 
     private File mFile;
     private String mTaskID;
     private int mIndex;
 
-    protected UploadJob(@NonNull UploadEvent event, @NonNull File file, @NonNull String taskID, int index) {
+    protected UploadJob(@NonNull File file, @NonNull String taskID, int index) {
         super(new Params(PRIORITY).requireNetwork().persist());
-        mEvent = event;
         this.mFile = file;
         this.mIndex = index;
         this.mTaskID = taskID;
@@ -50,8 +46,10 @@ class UploadJob extends Job {
      */
     @Override
     public void onAdded() {
-        new UploadSQLiteHelper(Init.getApplication()).updateStatue(mTaskID, mIndex, UploadService.UPLOADING);
-        mEvent.start(mFile, mTaskID, mIndex);
+        new UploadSQLiteHelper(Init.getApplication()).updateStatue(mTaskID, mIndex, UploadService.WAITING);
+        Task task = new Task(mTaskID, mIndex, mFile);
+        task.setStatue(UploadService.WAITING);
+        sendTask(task);
     }
 
     /**
@@ -64,10 +62,21 @@ class UploadJob extends Job {
      */
     @Override
     public void onRun() throws Throwable {
+        //更改为正在上传
+        new UploadSQLiteHelper(Init.getApplication()).updateStatue(mTaskID, mIndex, UploadService.UPLOADING);
+        Task task = new Task(mTaskID, mIndex, mFile);
+        task.setStatue(UploadService.UPLOADING);
+        sendTask(task);
+
+        //开始上传
         Thread.sleep(TimeUnit.SECONDS.toMillis(1));
         String url = RetrofitNetwork.UploadImage(mFile);
+
+        //上传成功
         new UploadSQLiteHelper(Init.getApplication()).doneUpload(mTaskID, mIndex, url);
-        mEvent.done(mFile, mTaskID, mIndex, url);
+        task.setStatue(UploadService.DONE);
+        task.setUrl(url);
+        sendTask(task);
     }
 
     /**
@@ -86,7 +95,10 @@ class UploadJob extends Job {
     @Override
     protected void onCancel(int cancelReason, @Nullable Throwable throwable) {
         new UploadSQLiteHelper(Init.getApplication()).updateStatue(mTaskID, mIndex, UploadService.FAILED);
-        mEvent.failed(mFile, mTaskID, mIndex, throwable != null ? throwable.getLocalizedMessage() : "");
+        Task task = new Task(mTaskID, mIndex, mFile);
+        task.setStatue(UploadService.FAILED);
+        task.setErrorMessage(throwable != null ? throwable.getLocalizedMessage() : "");
+        sendTask(task);
     }
 
     /**
@@ -114,19 +126,15 @@ class UploadJob extends Job {
     protected RetryConstraint shouldReRunOnThrowable(@NonNull Throwable throwable, int runCount, int maxRunCount) {
         if (runCount < maxRunCount) {
             new UploadSQLiteHelper(Init.getApplication()).updateStatue(mTaskID, mIndex, UploadService.RETRYING);
-            mEvent.retrying(mFile, mTaskID, mIndex);
+            Task task = new Task(mTaskID, mIndex, mFile);
+            task.setStatue(UploadService.RETRYING);
+            sendTask(task);
             return RetryConstraint.createExponentialBackoff(runCount, TimeUnit.SECONDS.toMillis(5));
         }
         return RetryConstraint.CANCEL;
     }
 
-    protected interface UploadEvent {
-        void start(@NonNull File file, @NonNull String taskID, int index);
-
-        void retrying(@NonNull File file, @NonNull String taskID, int index);
-
-        void failed(@NonNull File file, @NonNull String taskID, int index, @NonNull String errorMessage);
-
-        void done(@NonNull File file, @NonNull String taskID, int index, @NonNull String url);
+    private void sendTask(@NonNull Task task) {
+        RxBus.getInstance().send(task);
     }
 }

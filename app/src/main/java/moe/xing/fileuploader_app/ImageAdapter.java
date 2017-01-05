@@ -26,6 +26,9 @@ class ImageAdapter extends BaseSortedRVAdapter<Task, ImageAdapter.ViewHolder> {
         setDatas(new SortedList<>(Task.class, new SortedListAdapterCallback<Task>(this) {
             @Override
             public int compare(Task o1, Task o2) {
+                if (o1.getTaskIDAndIndex().equals(o2.getTaskIDAndIndex())) {
+                    return 0;
+                }
                 int compare = o1.getStatue() - o2.getStatue();
                 if (compare == 0) {
                     return o1.getIndex() - o2.getIndex();
@@ -35,12 +38,12 @@ class ImageAdapter extends BaseSortedRVAdapter<Task, ImageAdapter.ViewHolder> {
 
             @Override
             public boolean areContentsTheSame(Task oldItem, Task newItem) {
-                return oldItem.toString().equals(newItem.toString());
+                return true;
             }
 
             @Override
             public boolean areItemsTheSame(Task item1, Task item2) {
-                return item1.getTaskID().equals(item2.getTaskID()) && item1.getIndex() == item2.getIndex();
+                return item1.getTaskIDAndIndex().equals(item2.getTaskIDAndIndex());
             }
         }));
     }

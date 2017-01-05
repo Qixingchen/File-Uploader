@@ -6,7 +6,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.2.2'
+        classpath 'com.android.tools.build:gradle:2.3.0-beta1'
         classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
         classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.4.0'
         classpath 'com.vanniktech:gradle-android-junit-jacoco-plugin:0.5.0'
@@ -18,8 +18,9 @@ buildscript {
 
 allprojects {
     repositories {
-        jcenter()
+        maven { url "http://192.168.2.240:9080/nexus/content/groups/public/" }
         maven { url "https://jitpack.io" }
+        jcenter()
     }
 }
 
@@ -28,8 +29,8 @@ task clean(type: Delete) {
 }
 
 ext {
-    supportLibraryVersion = '25.0.1'
+    supportLibraryVersion = '25.1.0'
     rx_binding_version = '0.4.0'
     sdk_version = 24
-    buildToolsVersion = "25.0.0"
+    buildToolsVersion = "25.0.2"
 }

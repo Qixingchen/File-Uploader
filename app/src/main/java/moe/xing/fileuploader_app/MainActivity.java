@@ -8,9 +8,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.util.SortedList;
 import android.support.v7.widget.DividerItemDecoration;
-import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,15 +27,15 @@ import rx.Subscriber;
 
 public class MainActivity extends AppCompatActivity implements UploadService.UploadServiceEvent {
 
+    List<File> files = new ArrayList<>();
     private ActivityMainBinding mBinding;
     private ImageAdapter mAdapter;
-
     private UploadService.UploadBinder mBinder;
-
     private ServiceConnection connection = new ServiceConnection() {
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            mBinder.getService().removeEvent(MainActivity.this);
             mBinder = null;
         }
 
@@ -48,11 +46,9 @@ public class MainActivity extends AppCompatActivity implements UploadService.Upl
             mAdapter.getDatas().clear();
             mAdapter.addData(mBinder.getTask("testID1"));
 
-            mBinder.getService().setEvent(MainActivity.this);
+            mBinder.getService().addEvent(MainActivity.this);
         }
     };
-
-    List<File> files = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +69,7 @@ public class MainActivity extends AppCompatActivity implements UploadService.Upl
         mBinding.multiple.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(final View v) {
+                files.clear();
                 RxGetImage.getInstance().getMultipleImage(Integer.MAX_VALUE).subscribe(new Subscriber<File>() {
                     @Override
                     public void onCompleted() {
@@ -101,7 +98,7 @@ public class MainActivity extends AppCompatActivity implements UploadService.Upl
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mBinder.getService().setEvent(null);
+        mBinder.getService().addEvent(null);
         unbindService(connection);
     }
 
@@ -109,17 +106,14 @@ public class MainActivity extends AppCompatActivity implements UploadService.Upl
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                SortedList<Task> tasks = mAdapter.getDatas();
-                for (int i = 0; i < tasks.size(); i++) {
-                    Task taskInList = tasks.get(i);
-                    if (taskInList.getIndex() == task.getIndex()
-                            && task.getTaskID().equals(taskInList.getTaskID())) {
-                        tasks.removeItemAt(i);
+                for (int i = 0; i < mAdapter.getDatas().size(); i++) {
+                    Task inList = mAdapter.getDatas().get(i);
+                    if (task.getTaskIDAndIndex().equals(inList.getTaskIDAndIndex())) {
+                        mAdapter.removeDate(inList);
                         break;
                     }
                 }
                 mAdapter.addData(task);
-
             }
         });
     }

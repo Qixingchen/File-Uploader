@@ -16,6 +16,8 @@ import java.util.Locale;
 
 import moe.xing.baseutils.utils.LogHelper;
 
+import static moe.xing.fileuploader.UploadService.DONE;
+
 /**
  * Created by Qi Xingchen on 16-11-29.
  * <p>
@@ -77,6 +79,7 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
             LogHelper.e(String.format(Locale.getDefault(), "数据库写入任务失败 主任务 id: %s,序号 %d,文件路径: %s",
                     taskID, index, filePath));
         }
+        db.setTransactionSuccessful();
         db.endTransaction();
     }
 
@@ -105,8 +108,9 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
             LogHelper.e("更新了多个状态:" + count);
         }
         if (count <= 0) {
-            LogHelper.e("更新状态数量为" + count);
+            LogHelper.e("没有得到任何更新!");
         }
+        db.setTransactionSuccessful();
         db.endTransaction();
     }
 
@@ -121,7 +125,7 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
         db.beginTransaction();
 
         ContentValues values = new ContentValues();
-        values.put(SQLContract.UPLOAD.STATUE, UploadService.DONE);
+        values.put(SQLContract.UPLOAD.STATUE, DONE);
         values.put(SQLContract.UPLOAD.URL, url);
 
         String selection = SQLContract.UPLOAD.TASK_ID + " = ? AND " + SQLContract.UPLOAD.INDEX + " = ?";
@@ -138,6 +142,7 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
         if (count <= 0) {
             LogHelper.e("更新状态数量为" + count);
         }
+        db.setTransactionSuccessful();
         db.endTransaction();
     }
 
@@ -188,5 +193,20 @@ class UploadSQLiteHelper extends SQLiteOpenHelper {
         }
         c.close();
         return tasks;
+    }
+
+    /**
+     * 获取未完成任务的数量
+     */
+    int getUncompleteSize() {
+
+        List<Task> tasks = getTaskList(null);
+        int ans = 0;
+        for (Task task : tasks) {
+            if (task.getStatue() != DONE) {
+                ans++;
+            }
+        }
+        return ans;
     }
 }

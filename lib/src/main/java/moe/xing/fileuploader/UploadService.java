@@ -16,16 +16,16 @@ import android.support.v4.content.ContextCompat;
 
 import com.birbit.android.jobqueue.JobManager;
 import com.birbit.android.jobqueue.config.Configuration;
-import com.birbit.android.jobqueue.log.CustomLogger;
 
 import java.io.File;
+import java.lang.ref.SoftReference;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import me.shaohui.advancedluban.Luban;
 import moe.xing.baseutils.Init;
-import moe.xing.baseutils.utils.LogHelper;
 import moe.xing.rx_utils.RxBus;
 import rx.Observable;
 import rx.Subscriber;
@@ -40,37 +40,60 @@ import rx.functions.Action1;
 
 public class UploadService extends Service {
 
+    public static final int RETRYING = 1;
+    public static final int UPLOADING = 2;
+    public static final int FAILED = 3;
+    public static final int WAITING = 4;
+    public static final int COMPRESSING = 5;
+    public static final int DONE = 6;
+    private static final int NOTIFICATION_ID = 1123;
+    private static final int ERROR_COMPRESS_NOTIFICATION_ID = 1124;
+    private static final int COMPLETE_NOTIFICATION_ID = 1124;
     @NonNull
     private UploadBinder mBinder = new UploadBinder();
-
     @DrawableRes
     private int logo;
-
     @ColorRes
     private int color;
-
     @Nullable
     private PendingIntent mPendingIntent;
-
     private JobManager mJobManager;
+    @NonNull
+    private List<SoftReference<UploadServiceEvent>> mEvents = new ArrayList<>();
+    /*总共的任务数量*/
+    private int taskSize = new UploadSQLiteHelper(Init.getApplication()).getUncompleteSize();
+    /*结束的任务数量 包括失败的*/
+    private int completedTaskSize = 0;
+    /*成功的任务数量*/
+    private int doneTaskSize = 0;
 
-    @Nullable
-    private UploadServiceEvent mEvent;
+    public void addEvent(@Nullable UploadServiceEvent event) {
+        mEvents.add(new SoftReference<>(event));
+    }
 
-    public void setEvent(@Nullable UploadServiceEvent event) {
-        mEvent = event;
+    public void removeEvent(@Nullable UploadServiceEvent removeEvent) {
+
+        for (SoftReference<UploadServiceEvent> event : mEvents) {
+            if (event.get() != null && event.get().equals(removeEvent)) {
+                mEvents.remove(event);
+            }
+        }
     }
 
     public void onCreate() {
         super.onCreate();
         getJobManager();
+
         RxBus.getInstance().toObserverable().subscribe(new Action1<Object>() {
             @Override
             public void call(Object o) {
                 if (o instanceof Task) {
                     Task task = (Task) o;
-                    if (mEvent != null) {
-                        mEvent.taskChanged(task);
+
+                    for (SoftReference<UploadServiceEvent> event : mEvents) {
+                        if (event.get() != null) {
+                            event.get().taskChanged(task);
+                        }
                     }
                     if (task.getStatue() == FAILED) {
                         completedTaskSize++;
@@ -119,119 +142,11 @@ public class UploadService extends Service {
         stopNotification();
     }
 
-
-    public class UploadBinder extends Binder {
-        /**
-         * 上传文件
-         *
-         * @param files  需要上传的文件
-         * @param taskID 任务 ID
-         */
-        public void upload(List<File> files, @NonNull String taskID) {
-            uploadFiles(files, taskID);
-        }
-
-        /**
-         * 压缩并上传图片
-         *
-         * @param images 需要压缩上传的图片
-         * @param taskID 任务 ID
-         *               <p>
-         *               压缩后的预计文件大小 默认 300KiB
-         *               压缩后最大边的尺寸 默认 1920PX
-         */
-        public void compressAndUploadImage(List<File> images, @NonNull final String taskID) {
-            compressAndUploadImage(images, taskID, 300);
-        }
-
-        /**
-         * 压缩并上传图片
-         *
-         * @param images    需要压缩上传的图片
-         * @param taskID    任务 ID
-         * @param sizeInKiB 压缩后的预计文件大小 默认 300KiB
-         *                  <p>
-         *                  压缩后最大边的尺寸 默认 1920PX
-         */
-        public void compressAndUploadImage(List<File> images, @NonNull final String taskID, int sizeInKiB) {
-            compressAndUploadImage(images, taskID, sizeInKiB, 1920);
-        }
-
-        /**
-         * 压缩并上传图片
-         *
-         * @param images          需要压缩上传的图片
-         * @param taskID          任务 ID
-         * @param sizeInKiB       压缩后的预计文件大小 默认 300KiB
-         * @param maxSideSizeInPX 压缩后最大边的尺寸 默认 1920PX
-         */
-        public void compressAndUploadImage(List<File> images, @NonNull final String taskID, int sizeInKiB, int maxSideSizeInPX) {
-            if (images == null || images.size() == 0) {
-                showCompressErrorNotification("空相片组");
-                return;
-            }
-            int i = 0;
-            for (File file : images) {
-                Task task = new Task(taskID, i, file);
-                task.setStatue(COMPRESSING);
-                if (mEvent != null) {
-                    mEvent.taskChanged(task);
-                }
-                i++;
-            }
-            startForegroundNotification(images.size(), 0, 0);
-            compressImages(images, sizeInKiB, maxSideSizeInPX)
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(new Subscriber<List<File>>() {
-                        @Override
-                        public void onCompleted() {
-                        }
-
-                        @Override
-                        public void onError(Throwable e) {
-                            showCompressErrorNotification(e.getLocalizedMessage());
-                        }
-
-                        @Override
-                        public void onNext(List<File> files) {
-                            uploadFiles(files, taskID);
-                        }
-                    });
-        }
-
-        public void setNotifiInfo(@DrawableRes int notifiLogo, @ColorRes int appColor) {
-            logo = notifiLogo;
-            color = appColor;
-        }
-
-        public void setPendingIntent(@Nullable PendingIntent pendingIntent) {
-            mPendingIntent = pendingIntent;
-        }
-
-        /**
-         * 获取目前的上传状态
-         *
-         * @param taskID 主任务 ID,为空获取所有记录
-         */
-        public List<Task> getTask(@Nullable String taskID) {
-            return new UploadSQLiteHelper(Init.getApplication()).getTaskList(taskID);
-        }
-
-        public UploadService getService() {
-            return UploadService.this;
-        }
-    }
-
-
-    private static final int NOTIFICATION_ID = 1123;
-    private static final int ERROR_COMPRESS_NOTIFICATION_ID = 1124;
-    private static final int COMPLETE_NOTIFICATION_ID = 1124;
-
     /**
      * 开启前台通知
      */
     private void startForegroundNotification(int taskSize, int completedTaskSize, int doneTaskSize) {
-        if (taskSize == completedTaskSize) {
+        if (taskSize <= completedTaskSize) {
             stopNotification();
             showCompleteNotification(taskSize, doneTaskSize);
             return;
@@ -307,26 +222,29 @@ public class UploadService extends Service {
      * @return 压缩后的图片(Observable)
      */
     private Observable<List<File>> compressImages(List<File> images, int sizeInKiB, int maxSidePX) {
-        return Luban.get(this)
+        return Luban.compress(this, images)
                 .setMaxSize(sizeInKiB)
                 .setMaxWidth(maxSidePX).setMaxWidth(maxSidePX)
                 .putGear(Luban.CUSTOM_GEAR)
-                .load(images)
                 .asListObservable();
     }
-
-    /*总共的任务数量*/
-    private int taskSize = 0;
-    /*结束的任务数量 包括失败的*/
-    private int completedTaskSize = 0;
-    /*成功的任务数量*/
-    private int doneTaskSize = 0;
 
     private void uploadFiles(@NonNull List<File> files, @NonNull String taskID) {
         taskSize += files.size();
         startForegroundNotification(taskSize, completedTaskSize, doneTaskSize);
-        for (int i = 0; i < files.size(); i++) {
-            uploadFile(files.get(i), taskID, i);
+        int offset = new UploadSQLiteHelper(Init.getApplication()).getTaskList(taskID).size();
+        int i = 0;
+        for (File file : files) {
+            Task task = new Task(taskID, i + offset, file);
+            task.setStatue(WAITING);
+
+            for (SoftReference<UploadServiceEvent> event : mEvents) {
+                if (event.get() != null) {
+                    event.get().taskChanged(task);
+                }
+            }
+            uploadFile(files.get(i), taskID, i + offset);
+            i++;
         }
     }
 
@@ -334,14 +252,6 @@ public class UploadService extends Service {
         new UploadSQLiteHelper(this).addTask(taskID, index, file.getAbsolutePath());
         getJobManager().addJobInBackground(new UploadJob(file, taskID, index));
     }
-
-    public static final int RETRYING = 1;
-    public static final int UPLOADING = 2;
-    public static final int FAILED = 3;
-    public static final int WAITING = 4;
-    public static final int COMPRESSING = 5;
-    public static final int DONE = 6;
-
     @IntDef({WAITING, UPLOADING, COMPRESSING, RETRYING, FAILED, DONE})
     public @interface STATUE {
     }
@@ -350,6 +260,99 @@ public class UploadService extends Service {
 
         void taskChanged(@NonNull Task task);
 
+    }
+
+    public class UploadBinder extends Binder {
+        /**
+         * 上传文件
+         *
+         * @param files  需要上传的文件
+         * @param taskID 任务 ID
+         */
+        public void upload(List<File> files, @NonNull String taskID) {
+            uploadFiles(files, taskID);
+        }
+
+        /**
+         * 压缩并上传图片
+         *
+         * @param images 需要压缩上传的图片
+         * @param taskID 任务 ID
+         *               <p>
+         *               压缩后的预计文件大小 默认 300KiB
+         *               压缩后最大边的尺寸 默认 1920PX
+         */
+        public void compressAndUploadImage(List<File> images, @NonNull final String taskID) {
+            compressAndUploadImage(images, taskID, 300);
+        }
+
+        /**
+         * 压缩并上传图片
+         *
+         * @param images    需要压缩上传的图片
+         * @param taskID    任务 ID
+         * @param sizeInKiB 压缩后的预计文件大小 默认 300KiB
+         *                  <p>
+         *                  压缩后最大边的尺寸 默认 1920PX
+         */
+        public void compressAndUploadImage(List<File> images, @NonNull final String taskID, int sizeInKiB) {
+            compressAndUploadImage(images, taskID, sizeInKiB, 1920);
+        }
+
+        /**
+         * 压缩并上传图片
+         *
+         * @param images          需要压缩上传的图片
+         * @param taskID          任务 ID
+         * @param sizeInKiB       压缩后的预计文件大小 默认 300KiB
+         * @param maxSideSizeInPX 压缩后最大边的尺寸 默认 1920PX
+         */
+        public void compressAndUploadImage(List<File> images, @NonNull final String taskID, int sizeInKiB, int maxSideSizeInPX) {
+            if (images == null || images.size() == 0) {
+                showCompressErrorNotification("空相片组");
+                return;
+            }
+            startForegroundNotification(images.size(), 0, 0);
+            compressImages(images, sizeInKiB, maxSideSizeInPX)
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Subscriber<List<File>>() {
+                        @Override
+                        public void onCompleted() {
+                        }
+
+                        @Override
+                        public void onError(Throwable e) {
+                            showCompressErrorNotification(e.getLocalizedMessage());
+                        }
+
+                        @Override
+                        public void onNext(List<File> files) {
+                            uploadFiles(files, taskID);
+                        }
+                    });
+        }
+
+        public void setNotifiInfo(@DrawableRes int notifiLogo, @ColorRes int appColor) {
+            logo = notifiLogo;
+            color = appColor;
+        }
+
+        public void setPendingIntent(@Nullable PendingIntent pendingIntent) {
+            mPendingIntent = pendingIntent;
+        }
+
+        /**
+         * 获取目前的上传状态
+         *
+         * @param taskID 主任务 ID,为空获取所有记录
+         */
+        public List<Task> getTask(@Nullable String taskID) {
+            return new UploadSQLiteHelper(Init.getApplication()).getTaskList(taskID);
+        }
+
+        public UploadService getService() {
+            return UploadService.this;
+        }
     }
 
 }

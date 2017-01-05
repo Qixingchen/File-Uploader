@@ -26,6 +26,16 @@ public class Task implements Observable, Serializable {
     private String Url;
     @Nullable
     private String errorMessage;
+    private transient PropertyChangeRegistry propertyChangeRegistry = new PropertyChangeRegistry();
+
+    public Task() {
+    }
+
+    public Task(String taskID, int index, File file) {
+        this.taskID = taskID;
+        this.index = index;
+        this.file = file;
+    }
 
     @Nullable
     @Bindable
@@ -37,18 +47,6 @@ public class Task implements Observable, Serializable {
         this.errorMessage = errorMessage;
         notifyChange(BR.errorMessage);
     }
-
-    public Task() {
-    }
-
-    public Task(String taskID, int index, File file) {
-        this.taskID = taskID;
-        this.index = index;
-        this.file = file;
-    }
-
-    private transient PropertyChangeRegistry propertyChangeRegistry = new PropertyChangeRegistry();
-
 
     @Override
     public String toString() {
@@ -96,16 +94,19 @@ public class Task implements Observable, Serializable {
         return statue;
     }
 
+    public void setStatue(int statue) {
+        this.statue = statue;
+        notifyChange(BR.statue);
+        notifyChange(BR.statueString);
+    }
+
     @Bindable
     public String getStatueString() {
         return Init.getApplication().getResources().getStringArray(R.array.statue)[statue - 1];
     }
 
-
-    public void setStatue(int statue) {
-        this.statue = statue;
-        notifyChange(BR.statue);
-        notifyChange(BR.statueString);
+    public String getTaskIDAndIndex() {
+        return "taskid:" + taskID + " index:" + index;
     }
 
     @Bindable

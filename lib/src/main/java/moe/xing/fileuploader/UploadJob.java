@@ -8,6 +8,8 @@ import com.birbit.android.jobqueue.Params;
 import com.birbit.android.jobqueue.RetryConstraint;
 
 import java.io.File;
+import java.lang.ref.SoftReference;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import moe.xing.baseutils.Init;
@@ -70,12 +72,24 @@ class UploadJob extends Job {
 
         //开始上传
         Thread.sleep(TimeUnit.SECONDS.toMillis(1));
-        String url = RetrofitNetwork.UploadImage(mFile);
+        UpimgBean.DataEntity imgBean = RetrofitNetwork.UploadImage(mFile);
 
         //上传成功
-        new UploadSQLiteHelper(Init.getApplication()).doneUpload(mTaskID, mIndex, url);
+
+        task.setUrl(imgBean.getUrl());
+        task.setHeight(imgBean.getHeight());
+        task.setWidth(imgBean.getWidth());
+        List<SoftReference<UploadService.UploadServiceEvent>> mEvents = UploadService.getEvents();
+        for (SoftReference<UploadService.UploadServiceEvent> softReference : mEvents) {
+            if (softReference.get() != null) {
+                softReference.get().afterUpload(task);
+            }
+        }
+
+
+        //后处理完成
+        new UploadSQLiteHelper(Init.getApplication()).doneUpload(mTaskID, mIndex, imgBean.getUrl());
         task.setStatue(UploadService.DONE);
-        task.setUrl(url);
         sendTask(task);
     }
 

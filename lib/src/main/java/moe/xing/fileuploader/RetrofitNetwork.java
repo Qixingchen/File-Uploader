@@ -2,7 +2,6 @@ package moe.xing.fileuploader;
 
 import android.accounts.NetworkErrorException;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +38,7 @@ class RetrofitNetwork extends moe.xing.network.RetrofitNetwork {
      *                               or decoding the response.
      */
     @NonNull
-    static String UploadImage(@NonNull File file) throws Throwable {
+    static UpimgBean.DataEntity UploadImage(@NonNull File file) throws Throwable {
         Retrofit retrofit = new Retrofit.Builder()
                 //.callbackExecutor(AsyncTask.THREAD_POOL_EXECUTOR)
                 .client(okHttpClient())
@@ -63,7 +62,7 @@ class RetrofitNetwork extends moe.xing.network.RetrofitNetwork {
             throw new NetworkErrorException(upimgBeanResponse.body().getErrMsg());
         }
 
-        return upimgBeanResponse.body().getData().getUrl();
+        return upimgBeanResponse.body().getData();
 
     }
 

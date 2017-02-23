@@ -10,6 +10,7 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.WorkerThread;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.ContextCompat;
@@ -50,6 +51,8 @@ public class UploadService extends Service {
     private static final int ERROR_COMPRESS_NOTIFICATION_ID = 1124;
     private static final int COMPLETE_NOTIFICATION_ID = 1124;
     @NonNull
+    private static List<SoftReference<UploadServiceEvent>> mEvents = new ArrayList<>();
+    @NonNull
     private UploadBinder mBinder = new UploadBinder();
     @DrawableRes
     private int logo;
@@ -58,14 +61,17 @@ public class UploadService extends Service {
     @Nullable
     private PendingIntent mPendingIntent;
     private JobManager mJobManager;
-    @NonNull
-    private List<SoftReference<UploadServiceEvent>> mEvents = new ArrayList<>();
     /*总共的任务数量*/
     private int taskSize = new UploadSQLiteHelper(Init.getApplication()).getUncompleteSize();
     /*结束的任务数量 包括失败的*/
     private int completedTaskSize = 0;
     /*成功的任务数量*/
     private int doneTaskSize = 0;
+
+    @NonNull
+    public static List<SoftReference<UploadServiceEvent>> getEvents() {
+        return mEvents;
+    }
 
     public void addEvent(@Nullable UploadServiceEvent event) {
         mEvents.add(new SoftReference<>(event));
@@ -252,6 +258,7 @@ public class UploadService extends Service {
         new UploadSQLiteHelper(this).addTask(taskID, index, file.getAbsolutePath());
         getJobManager().addJobInBackground(new UploadJob(file, taskID, index));
     }
+
     @IntDef({WAITING, UPLOADING, COMPRESSING, RETRYING, FAILED, DONE})
     public @interface STATUE {
     }
@@ -259,6 +266,14 @@ public class UploadService extends Service {
     public interface UploadServiceEvent {
 
         void taskChanged(@NonNull Task task);
+
+        /**
+         * 文件上传后的操作,例如添加至所需的位置
+         * <p>
+         * 如果出错请抛出异常以便重试
+         */
+        @WorkerThread
+        void afterUpload(@NonNull Task task);
 
     }
 

@@ -25,6 +25,8 @@ public class Task implements Observable, Serializable {
     @Nullable
     private String Url;
     @Nullable
+    private String width, height;
+    @Nullable
     private String errorMessage;
     private transient PropertyChangeRegistry propertyChangeRegistry = new PropertyChangeRegistry();
 
@@ -109,14 +111,38 @@ public class Task implements Observable, Serializable {
         return "taskid:" + taskID + " index:" + index;
     }
 
+    @Nullable
     @Bindable
     public String getUrl() {
         return Url;
     }
 
-    public void setUrl(String Url) {
+    public void setUrl(@Nullable String Url) {
         this.Url = Url;
         notifyChange(BR.url);
+    }
+
+
+    @Nullable
+    @Bindable
+    public String getWidth() {
+        return width;
+    }
+
+    public void setWidth(@Nullable String width) {
+        this.width = width;
+        notifyChange(BR.width);
+    }
+
+    @Nullable
+    @Bindable
+    public String getHeight() {
+        return height;
+    }
+
+    public void setHeight(@Nullable String height) {
+        this.height = height;
+        notifyChange(BR.height);
     }
 
     private void notifyChange(int propertyId) {

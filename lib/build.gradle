@@ -44,7 +44,7 @@ dependencies {
     compile 'com.github.Qixingchen:Rx-Utils:V1.2.2'
 
     //网络
-    compile 'com.github.Qixingchen:Android-Network-Utils:V1.2.1'
+    compile 'com.github.Qixingchen:Android-Network-Utils:V1.2.4'
 
     //图片压缩
     compile 'me.shaohui.advancedluban:library:1.3.2'

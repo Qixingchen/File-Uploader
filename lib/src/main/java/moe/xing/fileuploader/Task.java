@@ -47,7 +47,7 @@ public class Task implements Observable, Serializable {
 
     public void setErrorMessage(@Nullable String errorMessage) {
         this.errorMessage = errorMessage;
-        notifyChange(BR.errorMessage);
+        notifyChange(moe.xing.fileuploader.BR.errorMessage);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class Task implements Observable, Serializable {
 
     public void setTaskID(String taskID) {
         this.taskID = taskID;
-        notifyChange(BR.taskID);
+        notifyChange(moe.xing.fileuploader.BR.taskID);
     }
 
     @Bindable
@@ -78,7 +78,7 @@ public class Task implements Observable, Serializable {
 
     public void setIndex(int index) {
         this.index = index;
-        notifyChange(BR.index);
+        notifyChange(moe.xing.fileuploader.BR.index);
     }
 
     @Bindable
@@ -88,7 +88,7 @@ public class Task implements Observable, Serializable {
 
     public void setFile(File file) {
         this.file = file;
-        notifyChange(BR.file);
+        notifyChange(moe.xing.fileuploader.BR.file);
     }
 
     @Bindable
@@ -98,8 +98,8 @@ public class Task implements Observable, Serializable {
 
     public void setStatue(int statue) {
         this.statue = statue;
-        notifyChange(BR.statue);
-        notifyChange(BR.statueString);
+        notifyChange(moe.xing.fileuploader.BR.statue);
+        notifyChange(moe.xing.fileuploader.BR.statueString);
     }
 
     @Bindable
@@ -119,7 +119,7 @@ public class Task implements Observable, Serializable {
 
     public void setUrl(@Nullable String Url) {
         this.Url = Url;
-        notifyChange(BR.url);
+        notifyChange(moe.xing.fileuploader.BR.url);
     }
 
 
@@ -131,7 +131,7 @@ public class Task implements Observable, Serializable {
 
     public void setWidth(@Nullable String width) {
         this.width = width;
-        notifyChange(BR.width);
+        notifyChange(moe.xing.fileuploader.BR.width);
     }
 
     @Nullable
@@ -142,7 +142,7 @@ public class Task implements Observable, Serializable {
 
     public void setHeight(@Nullable String height) {
         this.height = height;
-        notifyChange(BR.height);
+        notifyChange(moe.xing.fileuploader.BR.height);
     }
 
     private void notifyChange(int propertyId) {

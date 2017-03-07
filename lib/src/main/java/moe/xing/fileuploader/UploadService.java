@@ -230,7 +230,7 @@ public class UploadService extends Service {
     private Observable<List<File>> compressImages(List<File> images, int sizeInKiB, int maxSidePX) {
         return Luban.compress(this, images)
                 .setMaxSize(sizeInKiB)
-                .setMaxWidth(maxSidePX).setMaxWidth(maxSidePX)
+                .setMaxWidth(maxSidePX).setMaxHeight(maxSidePX)
                 .putGear(Luban.CUSTOM_GEAR)
                 .asListObservable();
     }
@@ -271,9 +271,10 @@ public class UploadService extends Service {
          * 文件上传后的操作,例如添加至所需的位置
          * <p>
          * 如果出错请抛出异常以便重试
+         * 在工作线程调用 请再处理结束后返回
          */
         @WorkerThread
-        void afterUpload(@NonNull Task task);
+        void afterUpload(@NonNull Task task) throws Exception;
 
     }
 

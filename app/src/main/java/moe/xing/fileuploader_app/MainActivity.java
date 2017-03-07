@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import moe.xing.baseutils.Init;
+import moe.xing.baseutils.utils.LogHelper;
 import moe.xing.fileuploader.Task;
 import moe.xing.fileuploader.UploadService;
 import moe.xing.fileuploader_app.databinding.ActivityMainBinding;
@@ -121,5 +122,18 @@ public class MainActivity extends AppCompatActivity implements UploadService.Upl
     @Override
     public void taskChanged(@NonNull Task task) {
         addTask(task);
+    }
+
+    /**
+     * 文件上传后的操作,例如添加至所需的位置
+     * <p>
+     * 如果出错请抛出异常以便重试
+     * 在工作线程调用 请再处理结束后返回
+     *
+     * @param task
+     */
+    @Override
+    public void afterUpload(@NonNull Task task) {
+        LogHelper.i("TaskID:" + task.getTaskID() + " url:" + task.getUrl());
     }
 }
